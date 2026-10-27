@@ -1,129 +1,92 @@
 # IlliHealth
 
-개도국 문맹 사용자의 의료 정보 접근성을 픽토그램·음성으로 보장하는 모바일 앱.  
-UN SDG 3 (건강과 웰빙) 달성 목표. React Native + Expo (managed workflow).
+글을 읽기 어려운 사용자가 의료정보를 픽토그램과 음성으로 접할 수 있게 하는 모바일 앱입니다.
 
----
+## 소개
 
-## 빠른 시작
+처방전과 약 설명서를 사진으로 찍으면 글자를 읽어(OCR) 픽토그램 순서로 바꾸고, 음성으로 읽어 줍니다. 복약 알림과 건강 기록, 응급 연락처, 의료진과의 QR 공유도 글 없이 쓸 수 있게 만들었습니다. UN SDG 3(건강과 웰빙)을 목표로 하며, SnapCare와 e-ICON으로 이어지는 계열의 모바일 앱입니다. 웹 버전은 [illihealth-web](https://github.com/n1a2m3y4u5n/illihealth-web)입니다.
 
-### 1. 의존성 설치
+## 주요 기능
+
+- 로그인: 전화번호와 SMS 인증번호(OTP), 그림 4개를 순서대로 고르는 그림 비밀번호, 생체 인증
+- 촬영: 처방전 또는 설명서를 사각형에 맞춰 찍고, OCR과 픽토그램 변환 진행을 단계별로 안내
+- 처방 확인: 변환된 픽토그램을 확인하는 화면(`prescription-review`)
+- 보관함: 등록된 약 목록과 약 상세
+- 복약 알림과 알람 화면
+- 건강 기록: 컨디션 기록, 사진 기록
+- 약물 상호작용 확인 (Supabase Edge Function)
+- 응급 모드: 응급 연락처와 현재 복용 중인 약 요약
+- 의료진 QR 공유: 일회용 토큰으로 복약 기록 공유
+- 예방: 만성질환 관리, 백신 접종 일정, 감염병 경보
+- 음성 출력(TTS)과 음성 명령 입력(STT)
+- 한국어, 영어 지원
+
+## 기술
+
+- React Native 0.81, Expo 54 (managed workflow, Expo Router), TypeScript, NativeWind
+- Supabase (Auth, DB, Edge Functions), Zustand
+- OCR: Tesseract.js, 선택적으로 Google Cloud Vision 폴백
+- 음성: expo-speech, expo-speech-recognition
+- 테스트: Jest
+
+## 실행 방법
 
 ```bash
 npm install
-```
-
-### 2. 환경 변수 설정
-
-```bash
 cp .env.example .env
 ```
 
-`.env` 파일을 열어 Supabase 프로젝트의 URL과 anon key를 입력합니다:
+`.env`에 Supabase 프로젝트의 URL과 anon key를 입력합니다. 다른 항목은 선택입니다.
 
 ```
-EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
+EXPO_PUBLIC_USE_VISION_API=            # true이면 Google Cloud Vision 폴백 사용
+EXPO_PUBLIC_GOOGLE_VISION_API_KEY=
 ```
-
-### 3. 앱 실행
 
 ```bash
-# iOS 시뮬레이터
-npm run ios
-
-# Android 에뮬레이터
-npm run android
-
-# Expo Go (QR 코드 스캔)
-npm start
+npm start            # Expo Go (QR 스캔)
+npm run ios          # iOS 시뮬레이터
+npm run android      # Android 에뮬레이터
+npm test             # Jest 단위 테스트
 ```
 
----
+### Supabase 마이그레이션
 
-## Supabase 마이그레이션 적용
-
-### 방법 A — Supabase 웹 대시보드 (권장, 빠름)
-
-1. [supabase.com](https://supabase.com) → 프로젝트 선택
-2. **SQL Editor** → **New Query**
-3. `supabase/migrations/0001_initial.sql` 내용을 붙여넣기
-4. **RUN** 클릭
-
-완료 후 **Table Editor**에서 14개 테이블이 생성됐는지 확인:
-- `user_profiles`, `prescriptions`, `medications`, `medication_schedules`
-- `medication_logs`, `health_logs`, `progress_photos`, `vaccinations`
-- `chronic_conditions`, `device_manuals`, `share_tokens`, `emergency_contacts`
-- `interaction_warnings`, `alarm_schedules`
-
-### 방법 B — Supabase CLI
+Supabase 대시보드의 SQL Editor에서 `supabase/migrations/0001_initial.sql`과 `0002_phase23.sql`을 차례로 실행하거나, Supabase CLI를 씁니다.
 
 ```bash
-# Supabase CLI 설치
-npm install -g supabase
-
-# 프로젝트 연결
-supabase link --project-ref your-project-ref
-
-# 마이그레이션 적용
+supabase link --project-ref <project-ref>
 supabase db push
 ```
 
----
+Edge Function은 `supabase/functions/`(`epidemic-poll`, `interaction-check`, `share-token`)에 있습니다.
 
-## 테스트 실행
+## 픽토그램 엔진 교체
 
-```bash
-npm test
-```
-
-단위 테스트 항목:
-- `__tests__/pictogram.test.ts` — 팀원 모듈 Mock 검증
-- `__tests__/ocr.test.ts` — OCR 인터페이스 검증
-
----
-
-## 팀원 모듈 교체 방법
-
-픽토그램 합성 엔진이 준비되면:
+`lib/pictogram.ts`에는 목(mock) 합성기가 연결되어 있습니다. 실제 픽토그램 합성 엔진이 준비되면 파일 맨 아래 export 한 줄만 바꿉니다.
 
 ```typescript
-// lib/pictogram.ts 맨 아래 한 줄만 변경
-// 변경 전:
+// 변경 전
 export const composer: PictogramComposer = mockComposer;
 
-// 변경 후:
-import { realComposer } from './pictogram-engine'; // 팀원 제공 모듈
+// 변경 후
+import { realComposer } from './pictogram-engine';
 export const composer: PictogramComposer = realComposer;
 ```
-
----
-
-## 빌드 로드맵
-
-| Phase | 상태 | 내용 |
-|---|---|---|
-| 0 — Foundation | ✅ 완료 | 앱 셸, 인증, Supabase, OCR, TTS, 픽토그램 UI 프레임워크 |
-| 1 — Core Loop | 🔲 대기 | 진단서 OCR, 보관함, 복약 알람, 일지 |
-| 2 — Voice+Safety | 🔲 대기 | STT, 설명서 OCR, 오프라인, 상호작용 경고, 응급, QR |
-| 3 — Polish | 🔲 대기 | 만성질환, 사진 경과, 백신, 감염병, 튜토리얼 |
-
-상세 로드맵: `docs/ROADMAP.md`
-
----
 
 ## 프로젝트 구조
 
 ```
-illihealth/
-├── app/              # Expo Router 화면
-│   ├── (auth)/       # 인증 플로우 (welcome → phone → otp → pin)
-│   └── (main)/       # 메인 화면 (홈 + stub 화면들)
-├── components/       # 재사용 UI 컴포넌트
-├── design-tokens/    # 컬러·타이포·스페이싱·터치 타깃 상수
-├── lib/              # 비즈니스 로직 (ocr, auth, voice, pictogram, supabase)
-├── stores/           # Zustand 상태 관리
-├── locales/          # i18n (ko.json, en.json)
-├── supabase/         # 마이그레이션 SQL + Edge Functions
-└── docs/             # ROADMAP, SCHEMA, VOICE_VOCAB
+app/              Expo Router 화면
+  (auth)/         인증 흐름 (welcome -> phone -> otp -> 그림 비밀번호)
+  (main)/         메인 화면
+components/       재사용 UI 컴포넌트
+design-tokens/    색, 글꼴, 간격, 터치 영역 상수
+lib/              OCR, 인증, 음성, 픽토그램, Supabase 등
+stores/           Zustand 상태
+locales/          i18n (ko.json, en.json)
+supabase/         마이그레이션 SQL, Edge Functions
+docs/             ROADMAP, SCHEMA, VOICE_VOCAB
 ```
